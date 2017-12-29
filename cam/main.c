@@ -61,6 +61,10 @@ int main(void)
     i2c_dev i2c = i2c_inst((void *) I2C_BASE);
     i2c_init(&i2c, I2C_FREQ);
 
+    IOWR_32DIRECT(CAM_CONTROLLER_0_BASE, 0x03*4, 0xabcdef);
+    uint32_t reg = IORD_32DIRECT(CAM_CONTROLLER_0_BASE, 0x03*4);
+    printf("CAM_IAR=0x%x\n", reg);
+
     /* clear image buffer */
     memset(image_buffer, 0, IMAGE_SIZE);
 
@@ -69,6 +73,7 @@ int main(void)
     camera_disable();
     delay(1000000);
     camera_enable();
+    delay(1000000);
 
 #if TEST
     printf("Camera setup\n");

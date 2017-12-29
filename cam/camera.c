@@ -15,10 +15,10 @@
 
 /* Camera Controller peripheral defines */
 #define CAM_BASE CAM_CONTROLLER_0_BASE
-#define CAM_CR  0x00
-#define CAM_IMR 0x01
-#define CAM_ISR 0x02
-#define CAM_IAR 0x03
+#define CAM_CR  (0x00*4)
+#define CAM_IMR (0x01*4)
+#define CAM_ISR (0x02*4)
+#define CAM_IAR (0x03*4)
 
 #define CAM_CR_CON_EN_MASK  0x00000001
 #define CAM_CR_CAM_EN_MASK  0x00000002
@@ -102,9 +102,14 @@ static bool write_reg(uint8_t register_offset, uint16_t data)
 
 static uint16_t read_reg(uint8_t register_offset)
 {
+    int success;
     uint8_t byte_data[2] = {0, 0};
 
-    i2c_read_array(_i2c, TRDB_D5M_I2C_ADDRESS, register_offset, byte_data, sizeof(byte_data));
+    success = i2c_read_array(_i2c, TRDB_D5M_I2C_ADDRESS, register_offset, byte_data, sizeof(byte_data));
+
+    if (success != I2C_SUCCESS) {
+    	printf("ERROR: I2C read\n");
+    }
 
     return ((uint16_t) byte_data[0] << 8) + byte_data[1];
 }
