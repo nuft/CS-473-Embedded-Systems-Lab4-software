@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include <system.h>
+#include <sys/alt_irq.h>
 #include <io.h>
 #include "i2c/i2c.h"
 
@@ -125,8 +126,11 @@ void camera_disable(void)
     IOWR_32DIRECT(CAM_BASE, CAM_CR, 0);
 }
 
-#define CAM_IC_ID CAM_CONTROLLER_0_IRQ_INTERRUPT_CONTROLLER_ID
-#define CAM_IRQ CAM_CONTROLLER_0_IRQ
+// #define CAM_IC_ID CAM_CONTROLLER_0_IRQ_INTERRUPT_CONTROLLER_ID
+// #define CAM_IRQ CAM_CONTROLLER_0_IRQ
+
+#define CAM_IC_ID 0
+#define CAM_IRQ 1
 /* Setup the camera
  * @note isr can be NULL to disable the interrupt
  */
@@ -147,6 +151,7 @@ void camera_setup(i2c_dev *i2c, void *buf, void (*isr)(void *), void *isr_arg)
         // Disable interrupt
         IOWR_32DIRECT(CAM_BASE, CAM_IMR, 0);
     }
+    camera_set_frame_buffer(buf);
 
     // ROW_SIZE = 1919 (R0x03)
     write_reg(REG_ROW_SIZE, 1919);
