@@ -53,6 +53,20 @@ bool dump_image(const uintptr_t addr)
     return true;
 }
 
+#define IMAGE_DEFAULT_VAL 0xdead
+
+void compare_image_to_default(uint16_t default_value)
+{
+    /* compare image buffer */
+    for (unsigned i = 0; i < IMAGE_SIZE/2; i++) {
+    	uint16_t pix = IORD_16DIRECT(IMAGE_ADDR, 2*i);
+    	if (pix != default_value) {
+    		printf("difference found at image[%u] = %x\n", i, pix);
+    		return;
+    	}
+    }
+}
+
 int main(void)
 {
     printf("I2C init\n");
@@ -60,8 +74,8 @@ int main(void)
     i2c_init(&i2c, I2C_FREQ);
 
     /* clear image buffer */
-    for (unsigned i = 0; i < IMAGE_SIZE; i++) {
-    	IOWR_8DIRECT(IMAGE_ADDR, i, 0x00);
+    for (unsigned i = 0; i < IMAGE_SIZE/2; i++) {
+    	IOWR_16DIRECT(IMAGE_ADDR, 2*i, IMAGE_DEFAULT_VAL);
     }
 
     /* Camera reset cycle */
@@ -81,19 +95,25 @@ int main(void)
     printf("Camera setup\n");
     camera_setup(&i2c, (void *)IMAGE_ADDR, NULL, NULL);
 
-    /* Wait until done*/
-    printf("Camera wait for image... ");
-    while(!camera_image_received());
-    printf("DONE\n");
-    camera_clear_irq_flag();
-    camera_disable();
-    printf("Camera disable\n");
+	while (1) {
+	    /* Wait until done*/
+	    printf("Camera wait for image... ");
+	    while(!camera_image_received());
+	    printf("DONE\n");
+	    camera_clear_irq_flag();
+	    // camera_disable();
+	    // printf("Camera disable\n");
 
-    printf("some pixel: %x\n", IORD_16DIRECT(IMAGE_ADDR + 2*(320 * 100 + 100), 0));
+	    compare_image_to_default(IMAGE_DEFAULT_VAL);
+	    printf("pixel[0]: %x\n", IORD_16DIRECT(IMAGE_ADDR, 0));
+	    printf("pixel[1]: %x\n", IORD_16DIRECT(IMAGE_ADDR + 2, 0));
 
-    printf("Dump image...\n");
-    dump_image(IMAGE_ADDR);
-    printf("DONE\n");
+	    // printf("some pixel: %x\n", IORD_16DIRECT(IMAGE_ADDR + 2*(320 * 100 + 100), 0));
+
+	    // printf("Dump image...\n");
+	    // dump_image(IMAGE_ADDR);
+	    // printf("DONE\n");
+	}
 #endif
 
     while (1) {
