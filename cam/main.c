@@ -13,7 +13,7 @@
 #define I2C_FREQ    (50000000) /* Clock frequency driving the i2c core: 50 MHz in this example (ADAPT TO YOUR DESIGN) */
 #define I2C_BASE    I2C_0_BASE
 
-#define TEST 0
+#define TEST 1
 
 #define IMAGE_ADDR HPS_0_BRIDGES_BASE
 
@@ -67,52 +67,60 @@ void compare_image_to_default(uint16_t default_value)
     }
 }
 
+void clear_image_buffer(uintptr_t addr, uint16_t fill)
+{
+    for (unsigned i = 0; i < IMAGE_SIZE/2; i++) {
+    	IOWR_16DIRECT(IMAGE_ADDR, 2*i, fill);
+    }
+}
+
 int main(void)
 {
     printf("I2C init\n");
     i2c_dev i2c = i2c_inst((void *) I2C_BASE);
     i2c_init(&i2c, I2C_FREQ);
 
-    /* clear image buffer */
-    for (unsigned i = 0; i < IMAGE_SIZE/2; i++) {
-    	IOWR_16DIRECT(IMAGE_ADDR, 2*i, IMAGE_DEFAULT_VAL);
-    }
+	/* Camera reset cycle */
+	printf("Camera reset\n");
+	camera_disable();
+	delay(1000000);
+	camera_enable();
+	delay(1000000);
 
-    /* Camera reset cycle */
-    printf("Camera reset\n");
-    camera_disable();
-    delay(1000000);
-    camera_enable();
-    delay(1000000);
+    /* clear image buffer */
+    clear_image_buffer(IMAGE_ADDR, IMAGE_DEFAULT_VAL);
+
+	printf("Camera setup\n");
+    camera_setup(&i2c, (void *)IMAGE_ADDR, NULL, NULL);
 
 #if TEST
-    printf("Camera setup\n");
-    camera_setup(&i2c, (void *)IMAGE_ADDR, NULL, NULL);
-    camera_dump_regs();
-    camera_disable();
+    printf("Camera wait for image... ");
+    while(!camera_image_received());
+	printf("DONE\n");
 
+	/* point somewhere else */
+	camera_set_frame_buffer(IMAGE_ADDR + IMAGE_SIZE);
+	camera_clear_irq_flag();
+	camera_dump_regs();
+
+    printf("Dump image...\n");
+    dump_image(IMAGE_ADDR);
+    printf("DONE\n");
+
+    compare_image_to_default(IMAGE_DEFAULT_VAL);
 #else
-    printf("Camera setup\n");
-    camera_setup(&i2c, (void *)IMAGE_ADDR, NULL, NULL);
-
 	while (1) {
 	    /* Wait until done*/
 	    printf("Camera wait for image... ");
 	    while(!camera_image_received());
 	    printf("DONE\n");
 	    camera_clear_irq_flag();
-	    // camera_disable();
-	    // printf("Camera disable\n");
 
 	    compare_image_to_default(IMAGE_DEFAULT_VAL);
 	    printf("pixel[0]: %x\n", IORD_16DIRECT(IMAGE_ADDR, 0));
 	    printf("pixel[1]: %x\n", IORD_16DIRECT(IMAGE_ADDR + 2, 0));
-
-	    // printf("some pixel: %x\n", IORD_16DIRECT(IMAGE_ADDR + 2*(320 * 100 + 100), 0));
-
-	    // printf("Dump image...\n");
-	    // dump_image(IMAGE_ADDR);
-	    // printf("DONE\n");
+	    printf("pixel[16]: %x\n", IORD_16DIRECT(IMAGE_ADDR, 32));
+	    printf("pixel[17]: %x\n", IORD_16DIRECT(IMAGE_ADDR, 32 + 2));
 	}
 #endif
 

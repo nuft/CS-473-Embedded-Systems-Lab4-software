@@ -214,6 +214,11 @@ void camera_set_frame_buffer(void *buf)
     IOWR_32DIRECT(CAM_BASE, CAM_IAR, (uint32_t)buf);
 }
 
+uintptr_t camera_get_frame_buffer(void)
+{
+    return IORD_32DIRECT(CAM_BASE, CAM_IAR);
+}
+
 void camera_dump_regs(void)
 {
     printf("CHIP_VERSION = %4hx\n", read_reg(REG_CHIP_VERSION));
