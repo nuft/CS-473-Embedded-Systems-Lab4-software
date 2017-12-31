@@ -9,7 +9,7 @@
 #include "i2c/i2c.h"
 
 /* Settings */
-#define CONFIG_TEST_PATTERN    0
+#define CONFIG_TEST_PATTERN    1
 #define CONFIG_MIRROR_ROW      0
 #define CONFIG_MIRROR_COL      0
 #define CONFIG_PIXCLK_DIV      0 // 0,1,2,4,8,16,32,64 half of effective divider
@@ -83,6 +83,19 @@
 /* REG_PIXEL_CLOCK_CONTROL */
 #define INVERT_PIXCLK_MASK  (1<<15)
 #define DIVIDE_PIXCLK_POS   0
+/* REG_TEST_PATTERN_CONTROL */
+#define TEST_PATTERN_COLOR_FIELD 0
+#define TEST_PATTERN_HORIZONTAL_GRADIENT 1
+#define TEST_PATTERN_VERTICAL_GRADIENT 2
+#define TEST_PATTERN_DIAGONAL 3
+#define TEST_PATTERN_CLASSIC 4
+#define TEST_PATTERN_MARCHING_1S 5
+#define TEST_PATTERN_MONOCHROME_HORIZONTAL_BARS 6
+#define TEST_PATTERN_MONOCHROME_VERTICAL_BARS 7
+#define TEST_PATTERN_VERTICAL_COLOR_BARS 8
+
+#define TEST_PATTERN_CONTROL_POS 3
+#define ENABLE_TEST_PATTERN_MASK (1<<0)
 
 
 static i2c_dev *_i2c;
@@ -187,7 +200,11 @@ void camera_setup(i2c_dev *i2c, void *buf, void (*isr)(void *), void *isr_arg)
 
 #if TEST_PATTERN
     // Test_Pattern_Mode
-    // TODO
+    write_reg(REG_TEST_PATTERN_CONTROL, ENABLE_TEST_PATTERN_MASK | (TEST_PATTERN_VERTICAL_COLOR_BARS<<TEST_PATTERN_CONTROL_POS));
+    write_reg(REG_TEST_PATTERN_RED, 0x080);
+    write_reg(REG_TEST_PATTERN_GREEN, 0xfff);
+    write_reg(REG_TEST_PATTERN_BLUE, 0xA80);
+    write_reg(REG_TEST_PATTERN_BAR_WIDTH, 8);
 #endif
 
     // Chip Enable=1 in Output Control register (bit 2 in R0x07)
