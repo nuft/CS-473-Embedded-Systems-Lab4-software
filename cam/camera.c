@@ -7,6 +7,7 @@
 #include <sys/alt_irq.h>
 #include <io.h>
 #include "i2c/i2c.h"
+#include "camera.h"
 
 /* Settings */
 #define CONFIG_TEST_PATTERN    1
@@ -184,6 +185,9 @@ void camera_setup(i2c_dev *i2c, void *buf, void (*isr)(void *), void *isr_arg)
     reg = read_reg(REG_READ_MODE_1);
     write_reg(REG_READ_MODE_1, reg & ~SNAPSHOT_MASK);
 
+    // decrease frame rate
+    write_reg(REG_VERTICAL_BLANK, 100);
+
     // mirror image
     reg = read_reg(REG_READ_MODE_2);
     reg &= ~(MIRROR_ROW_MASK | MIRROR_COL_MASK);
@@ -200,7 +204,7 @@ void camera_setup(i2c_dev *i2c, void *buf, void (*isr)(void *), void *isr_arg)
 
 #if CONFIG_TEST_PATTERN
     // Test_Pattern_Mode
-    write_reg(REG_TEST_PATTERN_CONTROL, ENABLE_TEST_PATTERN_MASK | (TEST_PATTERN_VERTICAL_COLOR_BARS<<TEST_PATTERN_CONTROL_POS));
+    write_reg(REG_TEST_PATTERN_CONTROL, ENABLE_TEST_PATTERN_MASK | (TEST_PATTERN_CLASSIC<<TEST_PATTERN_CONTROL_POS));
     write_reg(REG_TEST_PATTERN_RED, 0x080);
     write_reg(REG_TEST_PATTERN_GREEN, 0xfff);
     write_reg(REG_TEST_PATTERN_BLUE, 0xA80);
@@ -228,7 +232,7 @@ void camera_clear_irq_flag(void)
 
 void camera_set_frame_buffer(void *buf)
 {
-    IOWR_32DIRECT(CAM_BASE, CAM_IAR, (uint32_t)buf);
+    IOWR_32DIRECT(CAM_BASE, CAM_IAR, (uintptr_t)buf);
 }
 
 uintptr_t camera_get_frame_buffer(void)
