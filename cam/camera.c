@@ -198,7 +198,7 @@ void camera_setup(i2c_dev *i2c, void *buf, void (*isr)(void *), void *isr_arg)
     // invert clock
     write_reg(REG_PIXEL_CLOCK_CONTROL, INVERT_PIXCLK_MASK | (CONFIG_PIXCLK_DIV<<DIVIDE_PIXCLK_POS));
 
-#if TEST_PATTERN
+#if CONFIG_TEST_PATTERN
     // Test_Pattern_Mode
     write_reg(REG_TEST_PATTERN_CONTROL, ENABLE_TEST_PATTERN_MASK | (TEST_PATTERN_VERTICAL_COLOR_BARS<<TEST_PATTERN_CONTROL_POS));
     write_reg(REG_TEST_PATTERN_RED, 0x080);
