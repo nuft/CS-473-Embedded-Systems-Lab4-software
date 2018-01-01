@@ -18,6 +18,7 @@
 #define IMAGE_ADDR HPS_0_BRIDGES_BASE
 #define IMAGE1 IMAGE_ADDR
 #define IMAGE2 (IMAGE_ADDR + IMAGE_SIZE)
+#define IMAGE3 (IMAGE_ADDR + 2*IMAGE_SIZE)
 
 void delay(uint64_t n)
 {
@@ -42,7 +43,7 @@ bool dump_image(const uintptr_t addr)
     for (unsigned lin = 0; lin < 240; lin++) {
         printf(".");
         for (unsigned col = 0; col < 320; col++) {
-            uint16_t pixel = IORD_16DIRECT(addr + 2*(320 * lin + col), 0);
+            uint16_t pixel = IORD_16DIRECT(addr, 2*(320 * lin + col));
             uint8_t r = (uint8_t)((pixel >> 11) & 0b11111)<<3;
             uint8_t g = (uint8_t)((pixel >> 5) & 0b111111)<<2;
             uint8_t b = (uint8_t)(pixel & 0b11111)<<3;
@@ -88,6 +89,9 @@ int main(void)
     i2c_dev i2c = i2c_inst((void *) I2C_BASE);
     i2c_init(&i2c, I2C_FREQ);
 
+    /* Point somewhere else during camera setup */
+    camera_set_frame_buffer((void *)IMAGE3);
+
     /* Camera reset cycle */
     printf("Camera reset\n");
     camera_disable();
@@ -120,7 +124,7 @@ int main(void)
     }
 
     /* point somewhere else */
-    camera_set_frame_buffer((void *)IMAGE2);
+    camera_set_frame_buffer((void *)IMAGE1);
     camera_clear_irq_flag();
     camera_dump_regs();
 
@@ -129,7 +133,7 @@ int main(void)
     }
 
     printf("Dump image...\n");
-    dump_image(IMAGE1);
+    //dump_image(IMAGE1);
     printf("DONE\n");
 #else
     while (1) {

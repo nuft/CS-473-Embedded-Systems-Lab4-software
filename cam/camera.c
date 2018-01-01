@@ -10,10 +10,12 @@
 #include "camera.h"
 
 /* Settings */
-#define CONFIG_TEST_PATTERN    1
-#define CONFIG_MIRROR_ROW      0
-#define CONFIG_MIRROR_COL      0
-#define CONFIG_PIXCLK_DIV      0 // 0,1,2,4,8,16,32,64 half of effective divider
+#define CONFIG_TEST_PATTERN         1
+#define CONFIG_TEST_PATTERN_TYPE    TEST_PATTERN_MONOCHROME_VERTICAL_BARS
+#define CONFIG_BINNING              1
+#define CONFIG_MIRROR_ROW           0
+#define CONFIG_MIRROR_COL           0
+#define CONFIG_PIXCLK_DIV           0 // 0,1,2,4,8,16,32,64 half of effective divider
 
 /* Camera Controller peripheral defines */
 #define CAM_BASE CAM_CONTROLLER_0_BASE
@@ -132,9 +134,13 @@ static uint16_t read_reg(uint8_t register_offset)
 
 void camera_enable(void)
 {
-    IOWR_32DIRECT(CAM_BASE, CAM_CR, CAM_CR_CAM_EN_MASK | CAM_CR_CON_EN_MASK);
+    uint32_t cam_cr = IORD_32DIRECT(CAM_BASE, CAM_CR);
+    IOWR_32DIRECT(CAM_BASE, CAM_CR, cam_cr | CAM_CR_CAM_EN_MASK);
 }
 
+/* resets the Camera
+ * @note camera_setup() needs to be called again after reenabling the camera.
+ */
 void camera_disable(void)
 {
     IOWR_32DIRECT(CAM_BASE, CAM_CR, 0);
@@ -151,21 +157,27 @@ void camera_disable(void)
 void camera_setup(i2c_dev *i2c, void *buf, void (*isr)(void *), void *isr_arg)
 {
     uint16_t reg;
-
     _i2c = i2c;
+
+
+    uint32_t cam_cr = IORD_32DIRECT(CAM_BASE, CAM_CR);
+    IOWR_32DIRECT(CAM_BASE, CAM_CR, cam_cr & ~CAM_CR_CON_EN_MASK);
+
 
     if (isr != NULL) {
         // ic_id = <MY_IP>_IRQ_INTERRUPT_CONTROLLER_ID
         // irq = <MY_IP>_IRQ
-    	alt_ic_isr_register(CAM_IC_ID, CAM_IRQ, isr, isr_arg, NULL);
-    	alt_ic_irq_enable(CAM_IC_ID, CAM_IRQ);
+        alt_ic_isr_register(CAM_IC_ID, CAM_IRQ, isr, isr_arg, NULL);
+        alt_ic_irq_enable(CAM_IC_ID, CAM_IRQ);
         // Enable interrupt
         IOWR_32DIRECT(CAM_BASE, CAM_IMR, CAM_IMR_IRQ_MASK);
     } else {
         // Disable interrupt
         IOWR_32DIRECT(CAM_BASE, CAM_IMR, 0);
     }
-    camera_set_frame_buffer(buf);
+
+#if CONFIG_BINNING
+    // See "Table 1.7 Standard Resolutions" in THDB-D5 Hardware Specification.
 
     // ROW_SIZE = 1919 (R0x03)
     write_reg(REG_ROW_SIZE, 1919);
@@ -180,13 +192,28 @@ void camera_setup(i2c_dev *i2c, void *buf, void (*isr)(void *), void *isr_arg)
     // COLUMN_BIN = 3 (R0x23 [5:4])
     // COLUMN_SKIP = 3 (R0x23 [2:0])
     write_reg(REG_COLUMN_ADDRESS_MODE, (3<<COL_BIN_POS) | (3<<COL_SKIP_POS));
+#else
+    // ROW_SIZE = 479 (R0x03)
+    write_reg(REG_ROW_SIZE, 479);
+    // COLUMN_SIZE = 640 (R0x04)
+    write_reg(REG_COLUMN_SIZE, 640);
+    // SHUTTER_WIDTH_LOWER < 479 (R0x09)
+    write_reg(REG_SHUTTER_WIDTH_LOWER, 3);
+    write_reg(REG_SHUTTER_WIDTH_UPPER, 0);
+    // ROW_BIN = 0 (R0x22 [5:4])
+    // ROW_SKIP = 0 (R0x22 [2:0])
+    write_reg(REG_ROW_ADDRESS_MODE, (0<<ROW_BIN_POS) | (0<<ROW_SKIP_POS));
+    // COLUMN_BIN = 0 (R0x23 [5:4])
+    // COLUMN_SKIP = 0 (R0x23 [2:0])
+    write_reg(REG_COLUMN_ADDRESS_MODE, (0<<COL_BIN_POS) | (0<<COL_SKIP_POS));
+#endif
 
     // clear the bit Snapshot in register Read Mode 1 (bit 8 in R0x1E)
     reg = read_reg(REG_READ_MODE_1);
     write_reg(REG_READ_MODE_1, reg & ~SNAPSHOT_MASK);
 
     // decrease frame rate
-    write_reg(REG_VERTICAL_BLANK, 100);
+    write_reg(REG_VERTICAL_BLANK, 500);
 
     // mirror image
     reg = read_reg(REG_READ_MODE_2);
@@ -204,7 +231,7 @@ void camera_setup(i2c_dev *i2c, void *buf, void (*isr)(void *), void *isr_arg)
 
 #if CONFIG_TEST_PATTERN
     // Test_Pattern_Mode
-    write_reg(REG_TEST_PATTERN_CONTROL, ENABLE_TEST_PATTERN_MASK | (TEST_PATTERN_CLASSIC<<TEST_PATTERN_CONTROL_POS));
+    write_reg(REG_TEST_PATTERN_CONTROL, ENABLE_TEST_PATTERN_MASK | (CONFIG_TEST_PATTERN_TYPE<<TEST_PATTERN_CONTROL_POS));
     write_reg(REG_TEST_PATTERN_RED, 0x080);
     write_reg(REG_TEST_PATTERN_GREEN, 0xfff);
     write_reg(REG_TEST_PATTERN_BLUE, 0xA80);
@@ -214,6 +241,9 @@ void camera_setup(i2c_dev *i2c, void *buf, void (*isr)(void *), void *isr_arg)
     // Chip Enable=1 in Output Control register (bit 2 in R0x07)
     reg = read_reg(REG_OUTPUT_CONTROL);
     write_reg(REG_OUTPUT_CONTROL, reg | CHIP_ENABLE_MASK);
+
+    camera_set_frame_buffer(buf);
+    IOWR_32DIRECT(CAM_BASE, CAM_CR, cam_cr | CAM_CR_CON_EN_MASK);
 }
 
 bool camera_image_received(void)
