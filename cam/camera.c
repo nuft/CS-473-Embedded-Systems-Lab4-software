@@ -146,6 +146,24 @@ void camera_disable(void)
     IOWR_32DIRECT(CAM_BASE, CAM_CR, 0);
 }
 
+void camera_enable_receive(void)
+{
+    uint32_t cam_cr = IORD_32DIRECT(CAM_BASE, CAM_CR);
+    IOWR_32DIRECT(CAM_BASE, CAM_CR, cam_cr | CAM_CR_CON_EN_MASK);
+}
+
+static uint32_t _camera_disable_receive(void)
+{
+    uint32_t cam_cr = IORD_32DIRECT(CAM_BASE, CAM_CR);
+    IOWR_32DIRECT(CAM_BASE, CAM_CR, cam_cr & ~CAM_CR_CON_EN_MASK);
+    return cam_cr;
+}
+
+void camera_disable_receive(void)
+{
+    _camera_disable_receive();
+}
+
 // #define CAM_IC_ID CAM_CONTROLLER_0_IRQ_INTERRUPT_CONTROLLER_ID
 // #define CAM_IRQ CAM_CONTROLLER_0_IRQ
 
@@ -160,8 +178,7 @@ void camera_setup(i2c_dev *i2c, void *buf, void (*isr)(void *), void *isr_arg)
     _i2c = i2c;
 
 
-    uint32_t cam_cr = IORD_32DIRECT(CAM_BASE, CAM_CR);
-    IOWR_32DIRECT(CAM_BASE, CAM_CR, cam_cr & ~CAM_CR_CON_EN_MASK);
+    uint32_t cam_cr = _camera_disable_receive();
 
 
     if (isr != NULL) {
@@ -243,6 +260,8 @@ void camera_setup(i2c_dev *i2c, void *buf, void (*isr)(void *), void *isr_arg)
     write_reg(REG_OUTPUT_CONTROL, reg | CHIP_ENABLE_MASK);
 
     camera_set_frame_buffer(buf);
+
+    // restore Camera Control Register
     IOWR_32DIRECT(CAM_BASE, CAM_CR, cam_cr | CAM_CR_CON_EN_MASK);
 }
 

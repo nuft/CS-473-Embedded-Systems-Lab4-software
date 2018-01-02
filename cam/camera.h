@@ -10,6 +10,8 @@
 
 void camera_enable(void);
 void camera_disable(void);
+void camera_enable_receive(void);
+void camera_disable_receive(void);
 void camera_setup(i2c_dev *i2c, void *buf, void (*isr)(void *), void *isr_arg);
 bool camera_image_received(void);
 void camera_clear_irq_flag(void);
