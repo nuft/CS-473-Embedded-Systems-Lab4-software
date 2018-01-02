@@ -152,6 +152,8 @@ void camera_enable_receive(void)
     IOWR_32DIRECT(CAM_BASE, CAM_CR, cam_cr | CAM_CR_CON_EN_MASK);
 }
 
+
+/* @note returns last CAM_CR value to allow to restore the previous value. */
 static uint32_t _camera_disable_receive(void)
 {
     uint32_t cam_cr = IORD_32DIRECT(CAM_BASE, CAM_CR);
@@ -164,6 +166,16 @@ void camera_disable_receive(void)
     _camera_disable_receive();
 }
 
+void camera_enable_interrupt(void)
+{
+    IOWR_32DIRECT(CAM_BASE, CAM_IMR, CAM_IMR_IRQ_MASK);
+}
+
+void camera_disable_interrupt(void)
+{
+    IOWR_32DIRECT(CAM_BASE, CAM_IMR, 0);
+}
+
 // #define CAM_IC_ID CAM_CONTROLLER_0_IRQ_INTERRUPT_CONTROLLER_ID
 // #define CAM_IRQ CAM_CONTROLLER_0_IRQ
 
@@ -172,7 +184,7 @@ void camera_disable_receive(void)
 /* Setup the camera
  * @note isr can be NULL to disable the interrupt
  */
-void camera_setup(i2c_dev *i2c, void *buf, void (*isr)(void *), void *isr_arg)
+void camera_setup(i2c_dev *i2c, uint16_t *buf, void (*isr)(void *), void *isr_arg)
 {
     uint16_t reg;
     _i2c = i2c;
@@ -180,17 +192,16 @@ void camera_setup(i2c_dev *i2c, void *buf, void (*isr)(void *), void *isr_arg)
 
     uint32_t cam_cr = _camera_disable_receive();
 
-
+    camera_clear_irq_flag();
     if (isr != NULL) {
         // ic_id = <MY_IP>_IRQ_INTERRUPT_CONTROLLER_ID
         // irq = <MY_IP>_IRQ
         alt_ic_isr_register(CAM_IC_ID, CAM_IRQ, isr, isr_arg, NULL);
         alt_ic_irq_enable(CAM_IC_ID, CAM_IRQ);
-        // Enable interrupt
-        IOWR_32DIRECT(CAM_BASE, CAM_IMR, CAM_IMR_IRQ_MASK);
+
+        camera_enable_interrupt();
     } else {
-        // Disable interrupt
-        IOWR_32DIRECT(CAM_BASE, CAM_IMR, 0);
+        camera_disable_interrupt();
     }
 
 #if CONFIG_BINNING
@@ -262,7 +273,7 @@ void camera_setup(i2c_dev *i2c, void *buf, void (*isr)(void *), void *isr_arg)
     camera_set_frame_buffer(buf);
 
     // restore Camera Control Register
-    IOWR_32DIRECT(CAM_BASE, CAM_CR, cam_cr | CAM_CR_CON_EN_MASK);
+    IOWR_32DIRECT(CAM_BASE, CAM_CR, cam_cr);
 }
 
 bool camera_image_received(void)
@@ -279,14 +290,14 @@ void camera_clear_irq_flag(void)
     IOWR_32DIRECT(CAM_BASE, CAM_ISR, CAM_ISR_IRQ_MASK);
 }
 
-void camera_set_frame_buffer(void *buf)
+void camera_set_frame_buffer(uint16_t *buf)
 {
     IOWR_32DIRECT(CAM_BASE, CAM_IAR, (uintptr_t)buf);
 }
 
-uintptr_t camera_get_frame_buffer(void)
+uint16_t *camera_get_frame_buffer(void)
 {
-    return IORD_32DIRECT(CAM_BASE, CAM_IAR);
+    return (uint16_t *) IORD_32DIRECT(CAM_BASE, CAM_IAR);
 }
 
 void camera_dump_regs(void)

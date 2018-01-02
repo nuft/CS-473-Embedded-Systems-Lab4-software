@@ -57,7 +57,7 @@ void memtest(void)
     }
 }
 
-bool dump_image(const uintptr_t addr)
+bool dump_image(const uint16_t *addr)
 {
     const char* filename = "/mnt/host/image.ppm";
     FILE *outf = fopen(filename, "w");
@@ -88,11 +88,11 @@ bool dump_image(const uintptr_t addr)
 
 #define IMAGE_DEFAULT_VAL 0xdead
 
-bool compare_image_to_default(uintptr_t addr, uint16_t default_value)
+bool compare_image_to_default(uint16_t *image, uint16_t default_value)
 {
     /* compare image buffer */
     for (unsigned i = 0; i < IMAGE_SIZE/2; i++) {
-        uint16_t pix = IORD_16DIRECT(addr, 2*i);
+        uint16_t pix = IORD_16DIRECT(image, 2*i);
         if (pix != default_value) {
             printf("difference found at image[%u] = %x\n", i, pix);
             return true;
@@ -101,26 +101,42 @@ bool compare_image_to_default(uintptr_t addr, uint16_t default_value)
     return false;
 }
 
-void clear_image_buffer(uintptr_t addr, uint16_t fill)
+void clear_image_buffer(uint16_t *addr, uint16_t fill)
 {
     for (unsigned i = 0; i < IMAGE_SIZE/2; i++) {
         IOWR_16DIRECT(addr, 2*i, fill);
     }
 }
 
-uint16_t get_pixel_xy(uintptr_t image, unsigned x, unsigned y)
+uint16_t get_pixel_xy(uint16_t *image, unsigned x, unsigned y)
 {
     return IORD_16DIRECT(image, 2*(x + IMAGE_WIDTH*y));
 }
 
-void print_image_xy(uintptr_t image, unsigned x0, unsigned y0, unsigned dx, unsigned dy)
+void print_image_xy(uint16_t *image, unsigned x0, unsigned y0, unsigned dx, unsigned dy)
 {
     for (unsigned y = 0; y < dy; y++) {
         for (unsigned x = 0; x < dx; x++) {
-            printf("%04x ", get_pixel_xy(IMAGE1, x0+x, y0+y));
+            printf("%04x ", get_pixel_xy(image, x0+x, y0+y));
         }
         printf("\n");
     }
+}
+
+uint16_t *next_image = NULL;
+uint16_t *last_image = NULL;
+volatile bool image_received = false;
+void image_received_isr(void *arg)
+{
+    (void) arg;
+    camera_disable_receive();
+
+    last_image = camera_get_frame_buffer();
+    camera_set_frame_buffer(next_image);
+    image_received = true;
+    camera_clear_irq_flag();
+
+    printf("\nHELLO FROM INTERRUPT!\n");
 }
 
 int main(void)
@@ -131,8 +147,11 @@ int main(void)
     i2c_dev i2c = i2c_inst((void *) I2C_BASE);
     i2c_init(&i2c, I2C_FREQ);
 
+    uint16_t *image1 = (uint16_t *)IMAGE1;
+    uint16_t *image2 = (uint16_t *)IMAGE2;
+
     /* Point somewhere else during camera setup */
-    camera_set_frame_buffer((void *)IMAGE1);
+    camera_set_frame_buffer(image1);
     camera_disable_receive();
 
     /* Camera reset cycle */
@@ -142,19 +161,18 @@ int main(void)
     camera_enable();
     delay(1000000);
 
-    /* clear image buffer */
-    clear_image_buffer(IMAGE1, IMAGE_DEFAULT_VAL);
-    clear_image_buffer(IMAGE2, IMAGE_DEFAULT_VAL);
-
+#if TEST
     printf("Camera setup\n");
-    camera_setup(&i2c, (void *)IMAGE1, NULL, NULL);
+    camera_setup(&i2c, image1, NULL, NULL);
 
-    //camera_dump_regs();
+    camera_dump_regs();
     printf("CAM_IAR = 0x%08x\n", camera_get_frame_buffer());
 
-#if TEST
     // discard some images
     delay(1000000);
+
+    clear_image_buffer(image1, IMAGE_DEFAULT_VAL);
+    clear_image_buffer(image2, IMAGE_DEFAULT_VAL);
 
     camera_enable_receive();
     printf("Camera wait for image != default...\n");
@@ -164,7 +182,7 @@ int main(void)
         
         printf(".");
         
-        if (compare_image_to_default(IMAGE1, IMAGE_DEFAULT_VAL)) {
+        if (compare_image_to_default(image1, IMAGE_DEFAULT_VAL)) {
             printf("\nDONE\n");
             break;
         }
@@ -172,32 +190,39 @@ int main(void)
     camera_disable_receive();
 
     /* point somewhere else - just to be sure... */
-    camera_set_frame_buffer((void *)IMAGE2);
+    camera_set_frame_buffer(image2);
 
     camera_clear_irq_flag();
 
     /* debug info */
-    print_image_xy(IMAGE1, 0, 0, 32, 2);
+    print_image_xy(image1, 0, 0, 32, 2);
 
-    //printf("Dump image...\n");
-    //dump_image(IMAGE1);
+    printf("Dump image...\n");
+    dump_image(image1);
     printf("DONE\n");
 #else
+    printf("Camera setup\n");
+    camera_setup(&i2c, image1, image_received_isr, NULL);
+
+    clear_image_buffer(image1, IMAGE_DEFAULT_VAL);
+    clear_image_buffer(image2, IMAGE_DEFAULT_VAL);
+
     while (1) {
+        next_image = image1;
+        camera_enable_receive();
+        
         /* Wait until done*/
         printf("Camera wait for image... ");
-       // clear_image_buffer(IMAGE1, IMAGE_DEFAULT_VAL);
-        camera_set_frame_buffer((void *)IMAGE1);
-        camera_enable_receive();
-        while(!camera_image_received());
-        //camera_disable_receive();
-        camera_clear_irq_flag();
+        while(!image_received);
+        image_received = false;
         printf("DONE\n");
 
-        compare_image_to_default(IMAGE1, IMAGE_DEFAULT_VAL);
+        compare_image_to_default(last_image, IMAGE_DEFAULT_VAL);
 
         /* debug info */
-        print_image_xy(IMAGE1, 0, 0, 32, 2);
+        print_image_xy(image1, 0, 0, 32, 2);
+        
+        clear_image_buffer(image1, IMAGE_DEFAULT_VAL);
     }
 #endif
 
