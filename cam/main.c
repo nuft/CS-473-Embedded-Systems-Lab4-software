@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <inttypes.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include <io.h>
 #include <system.h>
@@ -20,10 +22,38 @@
 #define IMAGE2 (IMAGE_ADDR + IMAGE_SIZE)
 #define IMAGE3 (IMAGE_ADDR + 2*IMAGE_SIZE)
 
+#define ONE_MB (1024 * 1024)
+
 void delay(uint64_t n)
 {
     while (n-- > 0) {
         asm volatile ("nop");
+    }
+}
+
+void memtest(void)
+{
+    uint32_t megabyte_count = 0;
+
+    for (uint32_t i = 0; i < HPS_0_BRIDGES_SPAN; i += sizeof(uint32_t)) {
+
+        // Print progress through 256 MB memory available through address span expander
+        if ((i % ONE_MB) == 0) {
+            printf("megabyte_count = %" PRIu32 "\n", megabyte_count);
+            megabyte_count++;
+        }
+
+        uint32_t addr = HPS_0_BRIDGES_BASE + i;
+
+        // Write through address span expander
+        uint32_t writedata = i;
+        IOWR_32DIRECT(addr, 0, writedata);
+
+        // Read through address span expander
+        uint32_t readdata = IORD_32DIRECT(addr, 0);
+
+        // Check if read data is equal to written data
+        assert(writedata == readdata);
     }
 }
 
@@ -83,14 +113,20 @@ uint16_t get_pixel_xy(uintptr_t image, unsigned x, unsigned y)
     return IORD_16DIRECT(image, 2*(x + IMAGE_WIDTH*y));
 }
 
-void print_pixel_xy(uintptr_t image, unsigned x, unsigned y)
+void print_image_xy(uintptr_t image, unsigned x0, unsigned y0, unsigned dx, unsigned dy)
 {
-    uint16_t px = get_pixel_xy(image, x, y);
-    printf("pixel(%u,%u) = %x\n", x, y, px);
+    for (unsigned y = 0; y < dy; y++) {
+        for (unsigned x = 0; x < dx; x++) {
+            printf("%04x ", get_pixel_xy(IMAGE1, x0+x, y0+y));
+        }
+        printf("\n");
+    }
 }
 
 int main(void)
 {
+    // memtest();
+
     printf("I2C init\n");
     i2c_dev i2c = i2c_inst((void *) I2C_BASE);
     i2c_init(&i2c, I2C_FREQ);
@@ -113,6 +149,7 @@ int main(void)
     printf("Camera setup\n");
     camera_setup(&i2c, (void *)IMAGE1, NULL, NULL);
 
+    camera_dump_regs();
     printf("CAM_IAR = 0x%x\n", camera_get_frame_buffer());
 
 #if TEST
@@ -127,15 +164,15 @@ int main(void)
         
         printf(".");
         
-     //    if (compare_image_to_default(IMAGE1, IMAGE_DEFAULT_VAL)) {
-     //        printf("\nDONE\n");
-     //        break;
-     //    }
-        uint16_t px = get_pixel_xy(IMAGE1, 0, 1);
-        if (px != IMAGE_DEFAULT_VAL && px != 0x0000) {
+        if (compare_image_to_default(IMAGE1, IMAGE_DEFAULT_VAL)) {
             printf("\nDONE\n");
             break;
         }
+        // uint16_t px = get_pixel_xy(IMAGE1, 0, 1);
+        // if (px != IMAGE_DEFAULT_VAL && px != 0x0000) {
+        //     printf("\nDONE\n");
+        //     break;
+        // }
     }
     camera_disable_receive();
 
@@ -145,12 +182,9 @@ int main(void)
     camera_clear_irq_flag();
 
     /* debug info */
-    camera_dump_regs();
-    for (unsigned i=0; i<16; i++) {
-        print_pixel_xy(IMAGE1, i, 1);
-    }
+    print_image_xy(IMAGE1, 0, 0, 32, 2);
 
-    printf("Dump image...\n");
+    //printf("Dump image...\n");
     //dump_image(IMAGE1);
     printf("DONE\n");
 #else
