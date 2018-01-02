@@ -15,12 +15,12 @@
 #define I2C_FREQ    (50000000) /* Clock frequency driving the i2c core: 50 MHz in this example (ADAPT TO YOUR DESIGN) */
 #define I2C_BASE    I2C_0_BASE
 
-#define TEST 1
+#define TEST 0
 
 #define IMAGE_ADDR HPS_0_BRIDGES_BASE
 #define IMAGE1 IMAGE_ADDR
-#define IMAGE2 (IMAGE_ADDR + IMAGE_SIZE)
-#define IMAGE3 (IMAGE_ADDR + 2*IMAGE_SIZE)
+#define IMAGE2 (IMAGE1 + IMAGE_SIZE)
+#define IMAGE3 (IMAGE2 + IMAGE_SIZE)
 
 #define ONE_MB (1024 * 1024)
 
@@ -149,8 +149,8 @@ int main(void)
     printf("Camera setup\n");
     camera_setup(&i2c, (void *)IMAGE1, NULL, NULL);
 
-    camera_dump_regs();
-    printf("CAM_IAR = 0x%x\n", camera_get_frame_buffer());
+    //camera_dump_regs();
+    printf("CAM_IAR = 0x%08x\n", camera_get_frame_buffer());
 
 #if TEST
     // discard some images
@@ -168,11 +168,6 @@ int main(void)
             printf("\nDONE\n");
             break;
         }
-        // uint16_t px = get_pixel_xy(IMAGE1, 0, 1);
-        // if (px != IMAGE_DEFAULT_VAL && px != 0x0000) {
-        //     printf("\nDONE\n");
-        //     break;
-        // }
     }
     camera_disable_receive();
 
@@ -191,18 +186,18 @@ int main(void)
     while (1) {
         /* Wait until done*/
         printf("Camera wait for image... ");
-        clear_image_buffer(IMAGE1, IMAGE_DEFAULT_VAL);
+       // clear_image_buffer(IMAGE1, IMAGE_DEFAULT_VAL);
         camera_set_frame_buffer((void *)IMAGE1);
         camera_enable_receive();
         while(!camera_image_received());
-        camera_disable_receive();
+        //camera_disable_receive();
         camera_clear_irq_flag();
         printf("DONE\n");
 
         compare_image_to_default(IMAGE1, IMAGE_DEFAULT_VAL);
-//        for (unsigned i=0; i<16; i++) {
-//          print_pixel_xy(IMAGE1, i, 1);
-//        }
+
+        /* debug info */
+        print_image_xy(IMAGE1, 0, 0, 32, 2);
     }
 #endif
 
