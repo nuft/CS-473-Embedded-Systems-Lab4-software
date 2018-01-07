@@ -4,7 +4,7 @@
  * Machine generated for CPU 'nios2_gen2_0' in SOPC Builder design 'soc_system'
  * SOPC Builder design path: Z:/EmbeddedSystems/Lab4-CameraControllerImpl/hw/quartus/soc_system.sopcinfo
  *
- * Generated: Fri Dec 29 18:45:54 CET 2017
+ * Generated: Sun Jan 07 20:34:23 CET 2018
  */
 
 /*

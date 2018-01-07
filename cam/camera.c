@@ -12,6 +12,7 @@
 /* Settings */
 #define CONFIG_TEST_PATTERN         1
 #define CONFIG_TEST_PATTERN_TYPE    TEST_PATTERN_MONOCHROME_VERTICAL_BARS
+//#define CONFIG_TEST_PATTERN_TYPE    TEST_PATTERN_VERTICAL_COLOR_BARS
 #define CONFIG_BINNING              1
 #define CONFIG_MIRROR_ROW           0
 #define CONFIG_MIRROR_COL           0
@@ -263,8 +264,8 @@ void camera_setup(i2c_dev *i2c, uint16_t *buf, void (*isr)(void *), void *isr_ar
     write_reg(REG_TEST_PATTERN_CONTROL, ENABLE_TEST_PATTERN_MASK | (CONFIG_TEST_PATTERN_TYPE<<TEST_PATTERN_CONTROL_POS));
     write_reg(REG_TEST_PATTERN_RED, 0x080);
     write_reg(REG_TEST_PATTERN_GREEN, 0xfff);
-    write_reg(REG_TEST_PATTERN_BLUE, 0xA80);
-    write_reg(REG_TEST_PATTERN_BAR_WIDTH, 8);
+    write_reg(REG_TEST_PATTERN_BLUE, 0xf80);
+    write_reg(REG_TEST_PATTERN_BAR_WIDTH, 3);
 #endif
 
     // Chip Enable=1 in Output Control register (bit 2 in R0x07)
