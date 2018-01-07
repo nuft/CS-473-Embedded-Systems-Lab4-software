@@ -179,9 +179,9 @@ int main(void)
     while (1) {
         while(!camera_image_received());
         camera_clear_irq_flag();
-        
+
         printf(".");
-        
+
         if (compare_image_to_default(image1, IMAGE_DEFAULT_VAL)) {
             printf("\nDONE\n");
             break;
@@ -210,7 +210,7 @@ int main(void)
     while (1) {
         next_image = image1;
         camera_enable_receive();
-        
+
         /* Wait until done*/
         printf("Camera wait for image... ");
         while(!image_received);
@@ -221,7 +221,7 @@ int main(void)
 
         /* debug info */
         print_image_xy(image1, 0, 0, 32, 2);
-        
+
         clear_image_buffer(image1, IMAGE_DEFAULT_VAL);
     }
 #endif

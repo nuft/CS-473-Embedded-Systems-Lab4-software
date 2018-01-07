@@ -179,6 +179,7 @@ void camera_disable_interrupt(void)
 // #define CAM_IC_ID CAM_CONTROLLER_0_IRQ_INTERRUPT_CONTROLLER_ID
 // #define CAM_IRQ CAM_CONTROLLER_0_IRQ
 
+// NIOS-II BSP generator gives wrong IRQ numbers (-1). Override by hand using number from Qsys
 #define CAM_IC_ID 0
 #define CAM_IRQ 1
 /* Setup the camera

@@ -8,13 +8,13 @@
 #define IMAGE_WIDTH     320
 #define IMAGE_SIZE 		(2*IMAGE_HEIGHT*IMAGE_WIDTH)
 
+void camera_setup(i2c_dev *i2c, uint16_t *buf, void (*isr)(void *), void *isr_arg);
 void camera_enable(void);
 void camera_disable(void);
 void camera_enable_receive(void);
 void camera_disable_receive(void);
 void camera_enable_interrupt(void);
 void camera_disable_interrupt(void);
-void camera_setup(i2c_dev *i2c, uint16_t *buf, void (*isr)(void *), void *isr_arg);
 bool camera_image_received(void);
 void camera_clear_irq_flag(void);
 void camera_set_frame_buffer(uint16_t *buf);
